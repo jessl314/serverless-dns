@@ -318,3 +318,12 @@ required to setup the radix-trie during runtime bring-up or, downloads them [laz
 when serving a DNS request.
 
 `serverless-dns` compiles around ~17M entries (as of Nov 2025) from around 200+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+
+### Custom allow/deny lists (optional)
+
+Per-user domain overrides (separate from the shared blocklists above).
+
+1. Create a KV namespace and bind it as `CUSTOM_LISTS` in `wrangler.toml`
+2. ...
+3. Manage UI: `/manage`
+4. DNS URL: `/l:{uid}/rec/dns-query`

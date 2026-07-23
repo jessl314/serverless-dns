@@ -97,15 +97,18 @@ export class DnsBlocker {
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
       const domain = dnsutil.normalizeName(n)
-      // custom denylist
+      // check custom denylist
       if (HARDCODE_DENY.has(domain)) {
         r = pres.rdnsBlockResponse("custom-deny");
         break;
       }
+      // check custom allowlist
       if (HARDCODE_ALLOW.has(domain)) {
         r = pres.rdnsNoBlockResponse();
         continue;
       }
+      // check if selected shared lists overlaps with lists
+      // that contain this domain before block decision
       r = rdnsutil.doBlock(n, blockInfo, blockstamps);
       if (r.isBlocked) break;
     }
