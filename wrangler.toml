@@ -89,3 +89,14 @@ AUTO_RENEW_BLOCKLISTS_OLDER_THAN = "42" # weeks
 # CF_API_TOKEN = ""
 # CF_LOGPUSH_R2_SECRET_KEY = ""
 # CF_LOGPUSH_R2_ACCESS_KEY = ""
+
+
+####################
+#----KV BINDING----#
+####################
+# comment this out before a PR
+
+[[kv_namespaces]]
+binding = "CUSTOM_LISTS"
+id = "61b6bf8abfd4e37ada99d447f28591c"
+preview_id = "49e368cbe0b24fbbbfc21c9d0e274d1e"

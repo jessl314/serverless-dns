@@ -11,6 +11,9 @@ import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 
+const HARDCODE_DENY = new Set(["ads.example.com"]);
+const HARDCODE_ALLOW = new Set(["example.com", "doubleclick.net"]);
+
 export class DnsBlocker {
   constructor() {
     this.log = log.withTags("DnsBlocker");
@@ -93,6 +96,16 @@ export class DnsBlocker {
   block(names, blockInfo, blockstamps) {
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
+      const domain = dnsutil.normalizeName(n)
+      // custom denylist
+      if (HARDCODE_DENY.has(domain)) {
+        r = pres.rdnsBlockResponse("custom-deny");
+        break;
+      }
+      if (HARDCODE_ALLOW.has(domain)) {
+        r = pres.rdnsNoBlockResponse();
+        continue;
+      }
       r = rdnsutil.doBlock(n, blockInfo, blockstamps);
       if (r.isBlocked) break;
     }
