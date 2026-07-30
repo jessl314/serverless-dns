@@ -42,7 +42,7 @@ export async function loadLists(uid) {
 
     const lists = {
         allowlist: new Set((obj.allowlist || []).map(dnsutil.normalizeName)),  
-        denylist: new Set((obj.denylist || [])).map(dnsutil.normalizeName),
+        denylist: new Set((obj.denylist || []).map(dnsutil.normalizeName)),
     };
     listCache.put(uid, lists);
     return lists;

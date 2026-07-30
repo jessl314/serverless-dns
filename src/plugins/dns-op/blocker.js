@@ -11,9 +11,6 @@ import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 
-const HARDCODE_DENY = new Set(["ads.example.com"]);
-const HARDCODE_ALLOW = new Set(["example.com", "doubleclick.net"]);
-
 export class DnsBlocker {
   constructor() {
     this.log = log.withTags("DnsBlocker");
@@ -23,9 +20,11 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} req
    * @param {pres.BlockstampInfo} blockInfo
+   * @param {Set()} allowSet
+   * @param {Set()} denySet
    * @returns {pres.RespData}
    */
-  blockQuestion(rxid, req, blockInfo) {
+  blockQuestion(rxid, req, blockInfo, allowSet, denySet) {
     const dnsPacket = req.dnsPacket;
     const stamps = req.stamps;
 
@@ -45,8 +44,7 @@ export class DnsBlocker {
     }
 
     const domains = dnsutil.extractDomains(dnsPacket);
-    const bres = this.block(domains, blockInfo, stamps);
-
+    const bres = this.block(domains, blockInfo, stamps, allowSet, denySet);
     return pres.copyOnlyBlockProperties(req, bres);
   }
 
@@ -54,6 +52,8 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} res
    * @param {pres.BlockstampInfo} blockInfo
+   * @param {Set()} allowSet
+   * @param {Set()} denySet
    * @returns {pres.RespData}
    */
   blockAnswer(rxid, res, blockInfo) {
@@ -82,7 +82,7 @@ export class DnsBlocker {
     }
 
     const domains = dnsutil.extractDomains(dnsPacket);
-    const bres = this.block(domains, blockInfo, stamps);
+    const bres = this.block(domains, blockInfo, stamps, allowSet, denySet);
 
     return pres.copyOnlyBlockProperties(res, bres);
   }
@@ -91,19 +91,23 @@ export class DnsBlocker {
    * @param {string[]} names
    * @param {pres.BlockstampInfo} blockInfo
    * @param {pres.BStamp} blockstamps
+   * @param {Set()} allowSet
+   * @param {Set()} denySet
    * @returns {pres.RespData}
    */
-  block(names, blockInfo, blockstamps) {
+  block(names, blockInfo, blockstamps, allowSet, denySet) {
+    const customAllow = allowSet || new Set();
+    const customDeny = denySet || new Set();
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
       const domain = dnsutil.normalizeName(n)
       // check custom denylist
-      if (HARDCODE_DENY.has(domain)) {
+      if (customDeny.has(domain)) {
         r = pres.rdnsBlockResponse("custom-deny");
         break;
       }
       // check custom allowlist
-      if (HARDCODE_ALLOW.has(domain)) {
+      if (customAllow.has(domain)) {
         r = pres.rdnsNoBlockResponse();
         continue;
       }

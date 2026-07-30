@@ -53,7 +53,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOp",
       services.userOp,
-      ["rxid", "request", "requestDecodedDnsPacket", "isDnsMsg"],
+      ["rxid", "request", "requestDecodedDnsPacket", "isDnsMsg", "lid"],
       this.userOpCallback
     );
 
@@ -69,7 +69,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "cacheOnlyResolver",
       services.dnsCacheHandler,
-      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg"],
+      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg", "customAllowlist", "customDenylist"],
       this.dnsCacheCallback
     );
 
@@ -94,6 +94,8 @@ export default class RethinkPlugin {
         "domainBlockstamp",
         "requestDecodedDnsPacket",
         "requestBodyBuffer",
+        "customAllowlist",
+        "customDenylist"
       ],
       this.dnsResolverCallback
     );
@@ -201,6 +203,9 @@ export default class RethinkPlugin {
       this.addCtx("userBlocklistInfo", bi);
       this.addCtx("userBlockstamp", bs);
       this.addCtx("userDnsResolverUrl", rr);
+      // custom domain lists
+      this.addCtx("customAllowlist", r.customAllowlist || new Set());
+      this.addCtx("customDenylist", r.customDenylist || new Set());
     } else {
       this.log.i(rxid, "user-op is a no-op, possibly a command-control req");
     }
