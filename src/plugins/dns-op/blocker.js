@@ -20,8 +20,8 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} req
    * @param {pres.BlockstampInfo} blockInfo
-   * @param {Set()} allowSet
-   * @param {Set()} denySet
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
   blockQuestion(rxid, req, blockInfo, allowSet, denySet) {
@@ -52,11 +52,11 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} res
    * @param {pres.BlockstampInfo} blockInfo
-   * @param {Set()} allowSet
-   * @param {Set()} denySet
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
-  blockAnswer(rxid, res, blockInfo) {
+  blockAnswer(rxid, res, blockInfo, allowSet, denySet) {
     const dnsPacket = res.dnsPacket;
     const stamps = res.stamps;
 
@@ -91,8 +91,8 @@ export class DnsBlocker {
    * @param {string[]} names
    * @param {pres.BlockstampInfo} blockInfo
    * @param {pres.BStamp} blockstamps
-   * @param {Set()} allowSet
-   * @param {Set()} denySet
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
   block(names, blockInfo, blockstamps, allowSet, denySet) {

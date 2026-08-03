@@ -39,7 +39,10 @@ export class DNSCacheResponder {
       response.data = await this.resolveFromCache(
         ctx.rxid,
         ctx.requestDecodedDnsPacket,
-        ctx.userBlocklistInfo
+        ctx.userBlocklistInfo,
+        ctx.customAllowlist,
+        ctx.customDenylist
+
       );
     } catch (e) {
       this.log.e(ctx.rxid, "main", e.stack);
@@ -53,9 +56,11 @@ export class DNSCacheResponder {
    * @param {string} rxid
    * @param {any} packet
    * @param {pres.BStamp} blockInfo
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {Promise<pres.RespData>}
    */
-  async resolveFromCache(rxid, packet, blockInfo) {
+  async resolveFromCache(rxid, packet, blockInfo, allowSet, denySet) {
     const noAnswer = pres.rdnsNoBlockResponse();
     // if blocklist-filter is setup, then there's no need to query http-cache
     // (it introduces 5ms to 10ms latency). Because, the sole purpose of the
@@ -91,7 +96,7 @@ export class DNSCacheResponder {
     const stamps = rdnsutil.blockstampFromCache(cr);
     const res = pres.dnsResponse(cr.dnsPacket, cr.dnsBuffer, stamps);
 
-    this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
+    this.makeCacheResponse(rxid, /* out*/ res, blockInfo, allowSet, denySet);
 
     if (res.isBlocked) return res;
 
@@ -115,11 +120,13 @@ export class DNSCacheResponder {
    * @param {string} rxid
    * @param {pres.RespData} r
    * @param {pres.BStamp} blockInfo
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
-  makeCacheResponse(rxid, r, blockInfo) {
+  makeCacheResponse(rxid, r, blockInfo, allowSet, denySet) {
     // check incoming dns request against blocklists in cache-metadata
-    this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo);
+    this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo, allowSet, denySet);
     this.log.d(rxid, blockInfo, "q block?", r.isBlocked);
     if (r.isBlocked) {
       return r;
@@ -132,7 +139,7 @@ export class DNSCacheResponder {
     }
 
     // check outgoing cached dns-packet against blocklists
-    this.blocker.blockAnswer(rxid, /* out*/ r, blockInfo);
+    this.blocker.blockAnswer(rxid, /* out*/ r, blockInfo, allowSet, denySet);
     this.log.d(rxid, "a block?", r.isBlocked);
 
     return r;
