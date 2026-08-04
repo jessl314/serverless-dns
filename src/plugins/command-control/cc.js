@@ -540,7 +540,7 @@ async function handleListGet(queryString) {
   if (util.emptyString(uid)) {
     return new Response(JSON.stringify({ error: "missing uid" }), {
       status: 400,
-      headers = util.jsonHeaders(),
+      headers: util.jsonHeaders(),
     });
   }
 
@@ -550,7 +550,7 @@ async function handleListGet(queryString) {
   } catch {
     return new Response(JSON.stringify({ error: "invalid json" }), {
       status: 400,
-      headers = util.jsonHeaders(),
+      headers: util.jsonHeaders(),
     });
   }
 
@@ -559,7 +559,7 @@ async function handleListGet(queryString) {
   if (allowlist.length > 1000 || denylist.length > 1000) {
     return new Response(JSON.stringify({ error: "max 1000 domains per list" }), {
       status: 400,
-      headers = util.jsonHeaders(),
+      headers: util.jsonHeaders(),
     });
   }
 

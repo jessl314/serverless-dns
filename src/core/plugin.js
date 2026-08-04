@@ -327,8 +327,8 @@ export default class RethinkPlugin {
       // throw away any request that is not a dns-msg since cc.js
       // processes non-dns msgs only via GET, while rest of the
       // plugins process only dns-msgs via GET and POST.
-      if (!util.isGetRequest(request)) {
-        this.log.i(rxid, "not a dns-msg, not a GET req either", request);
+      if (!util.isGetRequest(request) && !util.isPutRequest(request)) {
+        this.log.i(rxid, "not a dns-msg, not a GET req and not a PUT req either", request);
         io.hResponse(util.respond405());
         return;
       }
