@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
@@ -18,6 +19,7 @@ import * as rdnsutil from "../rdns-util.js";
 import { BlocklistFilter } from "../rethinkdns/filter.js";
 import { BlocklistWrapper } from "../rethinkdns/main.js";
 import * as token from "../users/auth-token.js";
+import { managePage } from "./manage-page.js";
 import * as customlists from "../../custom-lists.js";
 
 export class CommandControl {
@@ -32,6 +34,7 @@ export class CommandControl {
     this.cmds = new Set([
       "configure",
       "config",
+      "manage",
       "search",
       "dntolist",
       "dntouint",
@@ -140,6 +143,12 @@ export class CommandControl {
       }
 
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
+
+      // Serve the management UI without initializing the DNS blocklist.
+      if (command === "manage") {
+        response.data.httpResponse = managePage();
+        return response;
+      }
 
       if (command === "custom") {
         response.data.stopProcessing = true;
