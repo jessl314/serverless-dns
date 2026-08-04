@@ -20,9 +20,11 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} req
    * @param {pres.BlockstampInfo} blockInfo
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
-  blockQuestion(rxid, req, blockInfo) {
+  blockQuestion(rxid, req, blockInfo, allowSet, denySet) {
     const dnsPacket = req.dnsPacket;
     const stamps = req.stamps;
 
@@ -42,8 +44,7 @@ export class DnsBlocker {
     }
 
     const domains = dnsutil.extractDomains(dnsPacket);
-    const bres = this.block(domains, blockInfo, stamps);
-
+    const bres = this.block(domains, blockInfo, stamps, allowSet, denySet);
     return pres.copyOnlyBlockProperties(req, bres);
   }
 
@@ -51,9 +52,11 @@ export class DnsBlocker {
    * @param {string} rxid
    * @param {pres.RespData} res
    * @param {pres.BlockstampInfo} blockInfo
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
-  blockAnswer(rxid, res, blockInfo) {
+  blockAnswer(rxid, res, blockInfo, allowSet, denySet) {
     const dnsPacket = res.dnsPacket;
     const stamps = res.stamps;
 
@@ -79,7 +82,7 @@ export class DnsBlocker {
     }
 
     const domains = dnsutil.extractDomains(dnsPacket);
-    const bres = this.block(domains, blockInfo, stamps);
+    const bres = this.block(domains, blockInfo, stamps, allowSet, denySet);
 
     return pres.copyOnlyBlockProperties(res, bres);
   }
@@ -88,11 +91,28 @@ export class DnsBlocker {
    * @param {string[]} names
    * @param {pres.BlockstampInfo} blockInfo
    * @param {pres.BStamp} blockstamps
+   * @param {Set<string>} allowSet
+   * @param {Set<string>} denySet
    * @returns {pres.RespData}
    */
-  block(names, blockInfo, blockstamps) {
+  block(names, blockInfo, blockstamps, allowSet, denySet) {
+    const customAllow = allowSet || new Set();
+    const customDeny = denySet || new Set();
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
+      const domain = dnsutil.normalizeName(n)
+      // check custom denylist
+      if (customDeny.has(domain)) {
+        r = pres.rdnsBlockResponse("custom-deny");
+        break;
+      }
+      // check custom allowlist
+      if (customAllow.has(domain)) {
+        r = pres.rdnsNoBlockResponse();
+        continue;
+      }
+      // check if selected shared lists overlaps with lists
+      // that contain this domain before block decision
       r = rdnsutil.doBlock(n, blockInfo, blockstamps);
       if (r.isBlocked) break;
     }

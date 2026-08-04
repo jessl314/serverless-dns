@@ -459,6 +459,10 @@ export function isGetRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
 
+export function isPutRequest(req) {
+  return req && !emptyString(req.method) && req.method.toUpperCase() === "PUT";
+}
+
 export function fromPath(strurl, re) {
   const empty = "";
   if (emptyString(strurl)) return empty;

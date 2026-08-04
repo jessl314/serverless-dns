@@ -13,6 +13,7 @@ import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as token from "./auth-token.js";
 import { UserCache } from "./user-cache.js";
+import * as customlists from "../../custom-lists.js";
 
 // TODO: determine an approp cache-size
 const cacheSize = 20000;
@@ -39,7 +40,7 @@ export class UserOp {
       if (!out.ok) {
         res = pres.errResponse("UserOp:Auth", new Error("auth failed"));
       } else {
-        res = this.loadUser(ctx);
+        res = await this.loadUser(ctx);
       }
       res.data.userAuth = out;
     } catch (ex) {
@@ -53,7 +54,7 @@ export class UserOp {
    * @param {{request: Request, requestDecodedDnsPacket: any, isDnsMsg: Boolean, rxid: string}} ctx
    * @returns {pres.RResp}
    */
-  loadUser(ctx) {
+  async loadUser(ctx) {
     const response = pres.emptyResponse();
 
     if (!ctx.isDnsMsg) {
@@ -100,11 +101,16 @@ export class UserOp {
         response.data.userBlocklistFlag = blocklistFlag;
         // TODO: override response.data.dnsResolverUrl
       }
+      const lists = await customlists.loadLists(ctx.lid || "");
+      response.data.customAllowlist = lists.allowlist;
+      response.data.customDenylist = lists.denylist;
     } catch (e) {
       this.log.e(ctx.rxid, "loadUser", e);
       // avoid erroring out on invalid blocklist info & flag
       // response = pres.errResponse("UserOp:loadUser", e);
     }
+
+    
 
     return response;
   }

@@ -19,6 +19,7 @@ import * as rdnsutil from "../rdns-util.js";
 import { BlocklistFilter } from "../rethinkdns/filter.js";
 import { BlocklistWrapper } from "../rethinkdns/main.js";
 import * as token from "../users/auth-token.js";
+import * as customlists from "../../custom-lists.js";
 import { managePage } from "./manage-page.js";
 
 export class CommandControl {
@@ -42,6 +43,7 @@ export class CommandControl {
       "genaccesskey",
       "analytics",
       "logs",
+      "custom",
     ]);
   }
 
@@ -50,6 +52,22 @@ export class CommandControl {
    * @returns {Promise<pres.RResp>}
    */
   async exec(ctx) {
+    if (util.isPutRequest(ctx.request)) {
+      const cmds = this.userCommands(new URL(ctx.request.url));
+      const reqUrl = new URL(ctx.request.url);
+
+      if (cmds.includes("custom")) {
+        const response = pres.emptyResponse();
+        response.data.stopProcessing = true;
+        response.data.httpResponse = await handleListPut(
+          ctx.request,
+          reqUrl.searchParams
+        );
+        return response;
+      }
+      // ignore if PUT request to something else
+      return pres.emptyResponse();
+    }
     // process only GET requests, ignore all others
     if (util.isGetRequest(ctx.request)) {
       return await this.commandOperation(
@@ -129,6 +147,12 @@ export class CommandControl {
       // Serve the management UI without initializing the DNS blocklist.
       if (command === "manage") {
         response.data.httpResponse = managePage();
+        return response;
+      }
+
+      if (command === "custom") {
+        response.data.stopProcessing = true;
+        response.data.httpResponse = await handleListGet(queryString);
         return response;
       }
 
@@ -492,4 +516,68 @@ function jsonResponse(obj) {
  */
 function plainResponse(body) {
   return new Response(body, { headers: util.corsHeaders() });
+}
+
+/**
+ * GET /custom?uid=alice
+ * @param {URLSearchParams} querySTring
+ * @returns {Promise<Response}
+ */
+async function handleListGet(queryString) {
+  const uid = queryString.get("uid");
+  if (util.emptyString(uid)) {
+    return new Response(JSON.stringify({ error: "missing uid" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  const lists = await customlists.loadLists(uid);
+  return jsonResponse({
+    allowlist: [...lists.allowlist],
+    denylist: [...lists.denylist],
+  });
+}
+
+/**
+ * PUT /custom?uid=alice
+ *
+ *
+ */
+async function handleListPut(req, queryString) {
+  const uid = queryString.get("uid");
+  if (util.emptyString(uid)) {
+    return new Response(JSON.stringify({ error: "missing uid" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "invalid json" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  const allowlist = body.allowlist || [];
+  const denylist = body.denylist || [];
+  if (allowlist.length > 1000 || denylist.length > 1000) {
+    return new Response(
+      JSON.stringify({ error: "max 1000 domains per list" }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
+  }
+
+  const lists = await customlists.saveLists(uid, { allowlist, denylist });
+  return jsonResponse({
+    allowlist: [...lists.allowlist],
+    denylist: [...lists.denylist],
+  });
 }

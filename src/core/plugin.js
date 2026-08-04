@@ -53,7 +53,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOp",
       services.userOp,
-      ["rxid", "request", "requestDecodedDnsPacket", "isDnsMsg"],
+      ["rxid", "request", "requestDecodedDnsPacket", "isDnsMsg", "lid"],
       this.userOpCallback
     );
 
@@ -69,7 +69,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "cacheOnlyResolver",
       services.dnsCacheHandler,
-      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg"],
+      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg", "customAllowlist", "customDenylist"],
       this.dnsCacheCallback
     );
 
@@ -94,6 +94,8 @@ export default class RethinkPlugin {
         "domainBlockstamp",
         "requestDecodedDnsPacket",
         "requestBodyBuffer",
+        "customAllowlist",
+        "customDenylist"
       ],
       this.dnsResolverCallback
     );
@@ -201,6 +203,9 @@ export default class RethinkPlugin {
       this.addCtx("userBlocklistInfo", bi);
       this.addCtx("userBlockstamp", bs);
       this.addCtx("userDnsResolverUrl", rr);
+      // custom domain lists
+      this.addCtx("customAllowlist", r.customAllowlist || new Set());
+      this.addCtx("customDenylist", r.customDenylist || new Set());
     } else {
       this.log.i(rxid, "user-op is a no-op, possibly a command-control req");
     }
@@ -322,8 +327,8 @@ export default class RethinkPlugin {
       // throw away any request that is not a dns-msg since cc.js
       // processes non-dns msgs only via GET, while rest of the
       // plugins process only dns-msgs via GET and POST.
-      if (!util.isGetRequest(request)) {
-        this.log.i(rxid, "not a dns-msg, not a GET req either", request);
+      if (!util.isGetRequest(request) && !util.isPutRequest(request)) {
+        this.log.i(rxid, "not a dns-msg, not a GET req and not a PUT req either", request);
         io.hResponse(util.respond405());
         return;
       }
