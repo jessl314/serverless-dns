@@ -43,7 +43,7 @@ export class CommandControl {
       "genaccesskey",
       "analytics",
       "logs",
-      "custom"
+      "custom",
     ]);
   }
 
@@ -541,10 +541,10 @@ async function handleListGet(queryString) {
 
 /**
  * PUT /custom?uid=alice
- * 
- * 
-  */ 
- async function handleListPut(req, queryString) {
+ *
+ *
+ */
+async function handleListPut(req, queryString) {
   const uid = queryString.get("uid");
   if (util.emptyString(uid)) {
     return new Response(JSON.stringify({ error: "missing uid" }), {
@@ -566,10 +566,13 @@ async function handleListGet(queryString) {
   const allowlist = body.allowlist || [];
   const denylist = body.denylist || [];
   if (allowlist.length > 1000 || denylist.length > 1000) {
-    return new Response(JSON.stringify({ error: "max 1000 domains per list" }), {
-      status: 400,
-      headers: util.jsonHeaders(),
-    });
+    return new Response(
+      JSON.stringify({ error: "max 1000 domains per list" }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
   }
 
   const lists = await customlists.saveLists(uid, { allowlist, denylist });
@@ -577,5 +580,4 @@ async function handleListGet(queryString) {
     allowlist: [...lists.allowlist],
     denylist: [...lists.denylist],
   });
- }
- 
+}

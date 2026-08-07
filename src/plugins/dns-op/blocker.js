@@ -100,7 +100,7 @@ export class DnsBlocker {
     const customDeny = denySet || new Set();
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
-      const domain = dnsutil.normalizeName(n)
+      const domain = dnsutil.normalizeName(n);
       // check custom denylist
       if (customDeny.has(domain)) {
         r = pres.rdnsBlockResponse("custom-deny");

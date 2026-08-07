@@ -171,7 +171,13 @@ export default class DNSResolver {
     // is a no-op, while we expect answer-block to catch the block regardless.
     const q = this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
 
-    this.blocker.blockQuestion(rxid, /* out*/ q, blInfo, ctx.customAllowlist, ctx.customDenylist);
+    this.blocker.blockQuestion(
+      rxid,
+      /* out*/ q,
+      blInfo,
+      ctx.customAllowlist,
+      ctx.customDenylist
+    );
     this.log.d(rxid, "q block?", q.isBlocked, "blf?", isBlfSetup, "ts?", ts);
 
     if (q.isBlocked) {
@@ -277,7 +283,13 @@ export default class DNSResolver {
 
     // blockAnswer is a no-op if the ans is already quad0
     // check outgoing cached dns-packet against blocklists
-    this.blocker.blockAnswer(rxid, /* out*/ r, blInfo, ctx.customAllowlist, ctx.customDenylist);
+    this.blocker.blockAnswer(
+      rxid,
+      /* out*/ r,
+      blInfo,
+      ctx.customAllowlist,
+      ctx.customDenylist
+    );
     const fromCache = cacheutil.hasCacheHeader(res.headers);
     this.log.d(rxid, "a block?", r.isBlocked, "c?", fromCache, "max?", fromMax);
 

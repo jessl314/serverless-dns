@@ -31,8 +31,9 @@ function serveConnection(clientSocket) {
     },
     () => {
       console.log("connected to up");
-      if (!upSocket.destroyed)
+      if (!upSocket.destroyed) {
         upSocket.write(Buffer.from(protocolText, "ascii"));
+      }
 
       clientSocket.pipe(upSocket);
       upSocket.pipe(clientSocket);

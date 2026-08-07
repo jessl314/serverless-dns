@@ -69,7 +69,14 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "cacheOnlyResolver",
       services.dnsCacheHandler,
-      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg", "customAllowlist", "customDenylist"],
+      [
+        "rxid",
+        "userBlocklistInfo",
+        "requestDecodedDnsPacket",
+        "isDnsMsg",
+        "customAllowlist",
+        "customDenylist",
+      ],
       this.dnsCacheCallback
     );
 
@@ -95,7 +102,7 @@ export default class RethinkPlugin {
         "requestDecodedDnsPacket",
         "requestBodyBuffer",
         "customAllowlist",
-        "customDenylist"
+        "customDenylist",
       ],
       this.dnsResolverCallback
     );
@@ -328,7 +335,11 @@ export default class RethinkPlugin {
       // processes non-dns msgs only via GET, while rest of the
       // plugins process only dns-msgs via GET and POST.
       if (!util.isGetRequest(request) && !util.isPutRequest(request)) {
-        this.log.i(rxid, "not a dns-msg, not a GET req and not a PUT req either", request);
+        this.log.i(
+          rxid,
+          "not a dns-msg, not a GET req and not a PUT req either",
+          request
+        );
         io.hResponse(util.respond405());
         return;
       }

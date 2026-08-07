@@ -322,8 +322,47 @@ when serving a DNS request.
 ### Custom allow/deny lists (optional)
 
 Per-user domain overrides (separate from the shared blocklists above).
+Up to ~1000 domains each for allowlist and denylist.
 
-1. Create a KV namespace and bind it as `CUSTOM_LISTS` in `wrangler.toml`
-2. ...
-3. Manage UI: `/manage`
-4. DNS URL: `/l:{uid}/rec/dns-query`
+If `CUSTOM_LISTS` is not bound, custom lists are empty no-ops; normal DNS
+and shared blocklists still work.
+
+**Setup (Cloudflare Workers)**
+1. Create a KV namespace.
+2. Bind it in `wrangler.toml`:
+
+```toml
+[[kv_namespaces]]
+binding = "CUSTOM_LISTS"
+id = "<your-kv-namespace-id>"
+preview_id = "<your-preview-kv-namespace-id>"
+```
+
+3. Deploy (wrangler deploy) or run locally (./run w).
+
+**API**
+- `GET /custom?uid={uid}` — read lists
+- `PUT /custom?uid={uid}` — replace lists
+- Body: `{"allowlist":["example.com"],"denylist":["ads.example.com"]}`
+
+**Manage UI**: `GET /manage`
+
+**DNS**: use `/l:{uid}/rec/dns-query` so that user’s lists load.
+Precedence: custom deny → custom allow → shared blocklists.
+
+**Local testing (with `./run w` running)**:
+
+#### optional: seed preview KV
+```bash
+npx wrangler kv key put "user:alice" \
+  '{"allowlist":["example.com"],"denylist":["ads.example.com"]}' \
+  --binding=CUSTOM_LISTS --preview
+
+curl -s "http://127.0.0.1:8787/custom?uid=alice"
+
+curl -s -X PUT "http://127.0.0.1:8787/custom?uid=alice" \
+  -H "Content-Type: application/json" \
+  -d '{"allowlist":["example.com"],"denylist":["ads.example.com"]}'
+```
+**Bulk bench testing** (optional):  
+`node test/manual/bench-custom-lists.mjs`

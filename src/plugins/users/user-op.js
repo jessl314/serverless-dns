@@ -109,9 +109,6 @@ export class UserOp {
       // avoid erroring out on invalid blocklist info & flag
       // response = pres.errResponse("UserOp:loadUser", e);
     }
-
-    
-
     return response;
   }
 }

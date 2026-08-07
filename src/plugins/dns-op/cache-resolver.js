@@ -42,7 +42,6 @@ export class DNSCacheResponder {
         ctx.userBlocklistInfo,
         ctx.customAllowlist,
         ctx.customDenylist
-
       );
     } catch (e) {
       this.log.e(ctx.rxid, "main", e.stack);
