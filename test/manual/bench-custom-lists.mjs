@@ -69,19 +69,41 @@ function print(label, r) {
   );
 }
 
+const ITERS = Number(process.argv[4]) || 10;
+function median(xs) {
+  const a = [...xs].sort((x, y) => x - y);
+  const mid = Math.floor(a.length / 2);
+  return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+}
+function summary(label, times) {
+  const min = Math.min(...times);
+  const max = Math.max(...times);
+  const med = median(times);
+  console.log(
+    `${label}: n=${times.length} min=${min.toFixed(1)}ms ` +
+      `median=${med.toFixed(1)}ms max=${max.toFixed(1)}ms ` +
+      `all=[${times.map((t) => t.toFixed(1)).join(", ")}]`
+  );
+}
+async function bench(label, fn) {
+  const times = [];
+  for (let i = 0; i < ITERS; i++) {
+    const r = await fn();
+    if (r.status !== 200) {
+      console.error(`${label} iter ${i} failed`, r);
+      process.exit(1);
+    }
+    times.push(r.ms);
+  }
+  summary(label, times);
+}
 const denylist = makeDomains("deny", N);
 const allowlist = makeDomains("allow", N);
-
-console.log(`base=${BASE} uid=${UID} N=${N}`);
-
-// warmup
+console.log(`base=${BASE} uid=${UID} N=${N} iters=${ITERS}`);
+// warmup (not counted)
 print("warmup GET", await getLists());
-
-print("PUT deny-only (1000)", await putLists([], denylist));
-print("GET after deny", await getLists());
-
-print("PUT allow-only (1000)", await putLists(allowlist, []));
-print("GET after allow", await getLists());
-
-print("PUT both (1000+1000)", await putLists(allowlist, denylist));
-print("GET after both", await getLists());
+print("warmup PUT", await putLists(allowlist, denylist));
+await bench("PUT deny-only", () => putLists([], denylist));
+await bench("PUT allow-only", () => putLists(allowlist, []));
+await bench("PUT both", () => putLists(allowlist, denylist));
+await bench("GET", () => getLists());
