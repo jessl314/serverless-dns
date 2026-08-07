@@ -345,7 +345,7 @@ preview_id = "<your-preview-kv-namespace-id>"
 - `PUT /custom?uid={uid}` — replace lists
 - Body: `{"allowlist":["example.com"],"denylist":["ads.example.com"]}`
 
-**Manage UI**: `GET /manage`
+**Manage UI**: open `http://127.0.0.1:8787/manage` in a browser (local), or `https://<your-worker>/manage` after deploy.
 
 **DNS**: use `/l:{uid}/rec/dns-query` so that user’s lists load.
 Precedence: custom deny → custom allow → shared blocklists.

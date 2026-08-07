@@ -332,7 +332,7 @@ export default class RethinkPlugin {
     // nothing to do if the current request isn't a dns question
     if (!isDnsMsg) {
       // throw away any request that is not a dns-msg since cc.js
-      // processes non-dns msgs only via GET, while rest of the
+      // processes non-dns msgs only via GET/PUT, while rest of the
       // plugins process only dns-msgs via GET and POST.
       if (!util.isGetRequest(request) && !util.isPutRequest(request)) {
         this.log.i(

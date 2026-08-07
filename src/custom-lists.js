@@ -18,20 +18,19 @@ export async function loadLists(uid) {
   }
   const store = kv();
 
-  // no binding — return empty lists / 503 on API
+  // no binding — return empty lists
   if (!store) {
     return { allowlist: new Set(), denylist: new Set() };
   }
 
   const cached = listCache.get(uid);
   if (cached) {
-    return cached; // LFU cache hit
+    return cached;
   }
 
   // LFU cache miss -> go to KV database
   const rawInfo = await store.get(`user:${uid}`);
 
-  // KV database miss
   if (!rawInfo) {
     const empty = { allowlist: new Set(), denylist: new Set() };
     listCache.put(uid, empty);
