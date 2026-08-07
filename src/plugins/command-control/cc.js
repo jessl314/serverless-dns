@@ -520,8 +520,8 @@ function plainResponse(body) {
 
 /**
  * GET /custom?uid=alice
- * @param {URLSearchParams} querySTring
- * @returns {Promise<Response}
+ * @param {URLSearchParams} queryString
+ * @returns {Promise<Response>}
  */
 async function handleListGet(queryString) {
   const uid = queryString.get("uid");
@@ -541,8 +541,10 @@ async function handleListGet(queryString) {
 
 /**
  * PUT /custom?uid=alice
- *
- *
+ * Body: {"allowlist":[...],"denylist":[...]}
+ * @param {Request} req
+ * @param {URLSearchParams} queryString
+ * @returns {Promise<Response>}
  */
 async function handleListPut(req, queryString) {
   const uid = queryString.get("uid");
