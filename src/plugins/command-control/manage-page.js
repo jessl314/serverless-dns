@@ -121,14 +121,16 @@ export function managePage() {
         </head>
   
         <body>
-          <main>
-            <h1>Custom DNS Lists</h1>
-  
-            <p class="description">
-              Manage domains in your custom allowlist and denylist.
-            </p>
-  
-            <section class="lists">
+        <main>
+        <h1>Custom DNS Lists</h1>
+      
+        <p class="description">
+          Manage domains in your custom allowlist and denylist.
+        </p>
+      
+        <p id="status-message" role="status" aria-live="polite"></p>
+      
+        <section class="lists">
               <article class="list-card">
                 <h2>Allowlist</h2>
   
@@ -172,75 +174,198 @@ export function managePage() {
           </main>
   
           <script>
-            const lists = {
-              allowlist: [],
-              denylist: [],
-            };
-  
-            function renderList(listType) {
-              const listElement = document.getElementById(listType);
-              const domains = lists[listType];
-  
-              listElement.innerHTML = "";
-  
-              if (domains.length === 0) {
-                const emptyMessage = document.createElement("li");
-                emptyMessage.className = "empty-message";
-                emptyMessage.textContent = "No domains added yet.";
-                listElement.appendChild(emptyMessage);
+          const lists = {
+            allowlist: [],
+            denylist: [],
+          };
+          const MAX_DOMAINS = 1000;
+          
+          function getUid() {
+            const query = new URLSearchParams(window.location.search);
+            return query.get("uid") || "";
+          }
+          
+          function showStatus(message, isError = false) {
+            const statusElement = document.getElementById("status-message");
+          
+            statusElement.textContent = message;
+            statusElement.style.color = isError ? "#b91c1c" : "#166534";
+          }
+          
+          async function loadLists() {
+            const uid = getUid();
+          
+            if (!uid) {
+              showStatus("Missing uid in URL.", true);
+              return;
+            }
+          
+            try {
+              const response = await fetch(
+                "/custom?uid=" + encodeURIComponent(uid)
+              );
+          
+              const data = await response.json();
+          
+              if (!response.ok) {
+                showStatus(data.error || "Could not load custom lists.", true);
                 return;
               }
-  
-              domains.forEach((domain) => {
-                const item = document.createElement("li");
-                item.className = "domain-item";
-  
-                const domainText = document.createElement("span");
-                domainText.textContent = domain;
-  
-                const removeButton = document.createElement("button");
-                removeButton.type = "button";
-                removeButton.className = "remove-button";
-                removeButton.textContent = "Remove";
-  
-                removeButton.addEventListener("click", () => {
-                  lists[listType] = lists[listType].filter(
-                    (currentDomain) => currentDomain !== domain
-                  );
-  
-                  renderList(listType);
-                });
-  
-                item.appendChild(domainText);
-                item.appendChild(removeButton);
-                listElement.appendChild(item);
-              });
+          
+              lists.allowlist = Array.isArray(data.allowlist)
+                ? data.allowlist
+                : [];
+          
+              lists.denylist = Array.isArray(data.denylist)
+                ? data.denylist
+                : [];
+          
+              renderList("allowlist");
+              renderList("denylist");
+              showStatus("Lists loaded.");
+            } catch (error) {
+              showStatus("Failed to load custom lists.", true);
+              console.error("Failed to load custom lists:", error);
             }
-  
-            document.querySelectorAll(".domain-form").forEach((form) => {
-              form.addEventListener("submit", (event) => {
-                event.preventDefault();
-  
-                const listType = form.dataset.listType;
-                const input = form.querySelector(".domain-input");
-                const domain = input.value.trim().toLowerCase();
-  
-                if (!domain) {
-                  return;
+          }
+          
+          async function saveLists() {
+            const uid = getUid();
+          
+            if (!uid) {
+              showStatus("Missing uid in URL.", true);
+              return false;
+            }
+          
+            try {
+              const response = await fetch(
+                "/custom?uid=" + encodeURIComponent(uid),
+                {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    allowlist: lists.allowlist,
+                    denylist: lists.denylist,
+                  }),
                 }
-  
-                if (!lists[listType].includes(domain)) {
-                  lists[listType].push(domain);
+              );
+          
+              const data = await response.json();
+          
+              if (!response.ok) {
+                showStatus(data.error || "Could not save custom lists.", true);
+                return false;
+              }
+          
+              lists.allowlist = Array.isArray(data.allowlist)
+                ? data.allowlist
+                : [];
+          
+              lists.denylist = Array.isArray(data.denylist)
+                ? data.denylist
+                : [];
+          
+              renderList("allowlist");
+              renderList("denylist");
+              showStatus("Lists updated.");
+          
+              return true;
+            } catch (error) {
+              showStatus("Failed to save custom lists.", true);
+              console.error("Failed to save custom lists:", error);
+              return false;
+            }
+          }
+        
+          function renderList(listType) {
+            const listElement = document.getElementById(listType);
+            const domains = lists[listType];
+        
+            listElement.innerHTML = "";
+        
+            if (domains.length === 0) {
+              const emptyMessage = document.createElement("li");
+              emptyMessage.className = "empty-message";
+              emptyMessage.textContent = "No domains added yet.";
+              listElement.appendChild(emptyMessage);
+              return;
+            }
+        
+            domains.forEach((domain) => {
+              const item = document.createElement("li");
+              item.className = "domain-item";
+        
+              const domainText = document.createElement("span");
+              domainText.textContent = domain;
+        
+              const removeButton = document.createElement("button");
+              removeButton.type = "button";
+              removeButton.className = "remove-button";
+              removeButton.textContent = "Remove";
+        
+              removeButton.addEventListener("click", async () => {
+                const previousList = [...lists[listType]];
+              
+                lists[listType] = lists[listType].filter(
+                  (currentDomain) => currentDomain !== domain
+                );
+              
+                const saved = await saveLists();
+              
+                if (!saved) {
+                  lists[listType] = previousList;
+                  renderList(listType);
                 }
-  
-                input.value = "";
-                renderList(listType);
               });
+        
+              item.appendChild(domainText);
+              item.appendChild(removeButton);
+              listElement.appendChild(item);
             });
-  
-            renderList("allowlist");
-            renderList("denylist");
-          </script>
+          }
+        
+          document.querySelectorAll(".domain-form").forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+              event.preventDefault();
+          
+              const listType = form.dataset.listType;
+              const input = form.querySelector(".domain-input");
+              const domain = input.value.trim().toLowerCase();
+          
+              if (!domain) {
+                return;
+              }
+          
+              if (lists[listType].includes(domain)) {
+                showStatus("That domain is already in this list.", true);
+                return;
+              }
+              
+              if (lists[listType].length >= MAX_DOMAINS) {
+                showStatus("This list has reached the 1,000-domain limit.", true);
+                return;
+              }
+              
+              lists[listType].push(domain);
+          
+              const saved = await saveLists();
+          
+              if (!saved) {
+                lists[listType] = lists[listType].filter(
+                  (currentDomain) => currentDomain !== domain
+                );
+                renderList(listType);
+                return;
+              }
+          
+              input.value = "";
+            });
+          });
+        
+          loadLists();
+        </script>
         </body>
       </html>
     `;
