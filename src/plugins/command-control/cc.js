@@ -544,8 +544,60 @@ async function handleListGet(queryString) {
  *
  *
  */
+
+function randomSalt() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    ""
+  );
+}
+
+async function hashPassword(password, salt) {
+  const encoder = new TextEncoder();
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(salt),
+      iterations: 600000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256
+  );
+
+  return Array.from(new Uint8Array(bits), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+function secureEqual(a, b) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let result = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+
+  return result === 0;
+}
+
 async function handleListPut(req, queryString) {
   const uid = queryString.get("uid");
+
   if (util.emptyString(uid)) {
     return new Response(JSON.stringify({ error: "missing uid" }), {
       status: 400,
@@ -554,6 +606,7 @@ async function handleListPut(req, queryString) {
   }
 
   let body;
+
   try {
     body = await req.json();
   } catch {
@@ -563,11 +616,13 @@ async function handleListPut(req, queryString) {
     });
   }
 
-  const allowlist = body.allowlist || [];
-  const denylist = body.denylist || [];
-  if (allowlist.length > 1000 || denylist.length > 1000) {
+  const password = body.password;
+
+  if (typeof password !== "string" || password.length < 8) {
     return new Response(
-      JSON.stringify({ error: "max 1000 domains per list" }),
+      JSON.stringify({
+        error: "password must be at least 8 characters",
+      }),
       {
         status: 400,
         headers: util.jsonHeaders(),
@@ -575,7 +630,60 @@ async function handleListPut(req, queryString) {
     );
   }
 
-  const lists = await customlists.saveLists(uid, { allowlist, denylist });
+  const allowlist = body.allowlist || [];
+  const denylist = body.denylist || [];
+
+  if (!Array.isArray(allowlist) || !Array.isArray(denylist)) {
+    return new Response(
+      JSON.stringify({
+        error: "allowlist and denylist must be arrays",
+      }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
+  }
+
+  if (allowlist.length > 1000 || denylist.length > 1000) {
+    return new Response(
+      JSON.stringify({
+        error: "max 1000 domains per list",
+      }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
+  }
+
+  const auth = await customlists.loadAuth(uid);
+
+  if (util.emptyString(auth.passwordHash)) {
+    // First use: create password credentials for this user.
+    const passwordSalt = randomSalt();
+    const passwordHash = await hashPassword(password, passwordSalt);
+
+    await customlists.saveAuth(uid, {
+      passwordHash,
+      passwordSalt,
+    });
+  } else {
+    const suppliedHash = await hashPassword(password, auth.passwordSalt);
+
+    if (!secureEqual(suppliedHash, auth.passwordHash)) {
+      return new Response(JSON.stringify({ error: "invalid password" }), {
+        status: 401,
+        headers: util.jsonHeaders(),
+      });
+    }
+  }
+
+  const lists = await customlists.saveLists(uid, {
+    allowlist,
+    denylist,
+  });
+
   return jsonResponse({
     allowlist: [...lists.allowlist],
     denylist: [...lists.denylist],

@@ -129,7 +129,17 @@ export function managePage() {
         </p>
       
         <p id="status-message" role="status" aria-live="polite"></p>
-      
+
+        <div class="auth-section">
+  <label for="password">Password</label>
+  <input
+    id="password"
+    type="password"
+    placeholder="Enter password"
+    autocomplete="current-password"
+  />
+</div>
+
         <section class="lists">
               <article class="list-card">
                 <h2>Allowlist</h2>
@@ -238,6 +248,14 @@ export function managePage() {
             }
           
             try {
+              const passwordInput = document.getElementById("password");
+              const password = passwordInput.value;
+          
+              if (!password) {
+                showStatus("Please enter your password.", true);
+                return false;
+              }
+          
               const response = await fetch(
                 "/custom?uid=" + encodeURIComponent(uid),
                 {
@@ -246,6 +264,7 @@ export function managePage() {
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
+                    password,
                     allowlist: lists.allowlist,
                     denylist: lists.denylist,
                   }),
