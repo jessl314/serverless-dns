@@ -25,3 +25,4 @@ src/basicconfig.json
 .eslintcache
 bin/main.wasm
 pkg/serverless-dns.tar.gz
+.wrangler/
