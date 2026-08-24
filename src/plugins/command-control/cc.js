@@ -59,10 +59,19 @@ export class CommandControl {
       if (cmds.includes("custom")) {
         const response = pres.emptyResponse();
         response.data.stopProcessing = true;
-        response.data.httpResponse = await handleListPut(
-          ctx.request,
-          reqUrl.searchParams
-        );
+
+        if (reqUrl.pathname === "/custom/auth") {
+          response.data.httpResponse = await handleAuthPut(
+            ctx.request,
+            reqUrl.searchParams
+          );
+        } else {
+          response.data.httpResponse = await handleListPut(
+            ctx.request,
+            reqUrl.searchParams
+          );
+        }
+
         return response;
       }
       // ignore if PUT request to something else
@@ -144,6 +153,17 @@ export class CommandControl {
 
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
+      // Temporary local/demo redirect to avoid initializing the full blocklist.
+      if (reqUrl.pathname === "/") {
+        response.data.httpResponse = new Response(null, {
+          status: 302,
+          headers: {
+            Location: "/manage?uid=testuser",
+          },
+        });
+        return response;
+      }
+
       // Serve the management UI without initializing the DNS blocklist.
       if (command === "manage") {
         response.data.httpResponse = managePage();
@@ -152,7 +172,13 @@ export class CommandControl {
 
       if (command === "custom") {
         response.data.stopProcessing = true;
-        response.data.httpResponse = await handleListGet(queryString);
+
+        if (reqUrl.pathname === "/custom/auth") {
+          response.data.httpResponse = await handleAuthStatus(queryString);
+        } else {
+          response.data.httpResponse = await handleListGet(queryString);
+        }
+
         return response;
       }
 
@@ -523,6 +549,24 @@ function plainResponse(body) {
  * @param {URLSearchParams} querySTring
  * @returns {Promise<Response}
  */
+
+async function handleAuthStatus(queryString) {
+  const uid = queryString.get("uid");
+
+  if (util.emptyString(uid)) {
+    return new Response(JSON.stringify({ error: "missing uid" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  const hasPassword = await customlists.hasAuth(uid);
+
+  return jsonResponse({
+    hasPassword,
+  });
+}
+
 async function handleListGet(queryString) {
   const uid = queryString.get("uid");
   if (util.emptyString(uid)) {
@@ -595,6 +639,73 @@ function secureEqual(a, b) {
   return result === 0;
 }
 
+async function handleAuthPut(req, queryString) {
+  const uid = queryString.get("uid");
+
+  if (util.emptyString(uid)) {
+    return new Response(JSON.stringify({ error: "missing uid" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  let body;
+
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "invalid json" }), {
+      status: 400,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  const password = body.password;
+
+  if (typeof password !== "string" || password.length < 8) {
+    return new Response(
+      JSON.stringify({
+        error: "password must be at least 8 characters",
+      }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
+  }
+
+  const auth = await customlists.loadAuth(uid);
+
+  if (util.emptyString(auth.passwordHash)) {
+    const passwordSalt = randomSalt();
+    const passwordHash = await hashPassword(password, passwordSalt);
+
+    await customlists.saveAuth(uid, {
+      passwordHash,
+      passwordSalt,
+    });
+
+    return jsonResponse({
+      authenticated: true,
+      created: true,
+    });
+  }
+
+  const suppliedHash = await hashPassword(password, auth.passwordSalt);
+
+  if (!secureEqual(suppliedHash, auth.passwordHash)) {
+    return new Response(JSON.stringify({ error: "invalid password" }), {
+      status: 401,
+      headers: util.jsonHeaders(),
+    });
+  }
+
+  return jsonResponse({
+    authenticated: true,
+    created: false,
+  });
+}
+
 async function handleListPut(req, queryString) {
   const uid = queryString.get("uid");
 
@@ -649,6 +760,22 @@ async function handleListPut(req, queryString) {
     return new Response(
       JSON.stringify({
         error: "max 1000 domains per list",
+      }),
+      {
+        status: 400,
+        headers: util.jsonHeaders(),
+      }
+    );
+  }
+
+  const allowSet = new Set(allowlist);
+
+  const duplicateDomain = denylist.find((domain) => allowSet.has(domain));
+
+  if (duplicateDomain) {
+    return new Response(
+      JSON.stringify({
+        error: "a domain cannot be in both allowlist and denylist",
       }),
       {
         status: 400,

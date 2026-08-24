@@ -12,11 +12,12 @@ export function managePage() {
         <head>
           <meta charset="UTF-8" />
           <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-          />
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+/>
   
           <title>Custom DNS Lists</title>
+          <link rel="icon" href="data:," />
   
           <style>
             * {
@@ -121,42 +122,52 @@ export function managePage() {
         </head>
   
         <body>
-        <main>
-        <h1>Custom DNS Lists</h1>
-      
-        <p class="description">
-          Manage domains in your custom allowlist and denylist.
-        </p>
-      
-        <p id="status-message" role="status" aria-live="polite"></p>
+  <main>
+  <h1>Custom DNS Lists</h1>
 
-        <div class="auth-section">
-  <label for="password">Password</label>
-  <input
-    id="password"
-    type="password"
-    placeholder="Enter password"
-    autocomplete="current-password"
-  />
-</div>
+  <p class="description">
+    Manage domains in your custom allowlist and denylist.
+  </p>
 
-        <section class="lists">
+  <p id="status-message" role="status" aria-live="polite"></p>
+
+  <!-- Authentication screen shown first -->
+  <div id="auth-screen" class="auth-section">
+    <h2 id="auth-title">Authentication</h2>
+
+    <label for="password">Password</label>
+
+    <input
+      id="password"
+      type="password"
+      placeholder="Enter password"
+      autocomplete="current-password"
+    />
+
+    <button id="auth-button" class="add-button" type="button">
+      Continue
+    </button>
+  </div>
+
+  <!-- List management UI stays hidden until authentication succeeds -->
+  <div id="list-screen" hidden>
+    <section class="lists">
               <article class="list-card">
                 <h2>Allowlist</h2>
   
                 <form class="domain-form" data-list-type="allowlist">
-                  <input
-                    class="domain-input"
-                    type="text"
-                    placeholder="example.com"
-                    aria-label="Allowlist domain"
-                    required
-                  />
-  
-                  <button class="add-button" type="submit">
-                    Add
-                  </button>
-                </form>
+  <textarea
+    class="domain-input"
+    placeholder="example.com&#10;openai.com&#10;github.com"
+    aria-label="Allowlist domains"
+    rows="6"
+    required
+  ></textarea>
+
+  <button class="add-button" type="submit">
+    Add Domains
+  </button>
+</form>
   
                 <ul class="domain-list" id="allowlist"></ul>
               </article>
@@ -165,23 +176,23 @@ export function managePage() {
                 <h2>Denylist</h2>
   
                 <form class="domain-form" data-list-type="denylist">
-                  <input
-                    class="domain-input"
-                    type="text"
-                    placeholder="ads.example.com"
-                    aria-label="Denylist domain"
-                    required
-                  />
-  
-                  <button class="add-button" type="submit">
-                    Add
-                  </button>
-                </form>
-  
+  <textarea
+    class="domain-input"
+    placeholder="ads.example.com&#10;tracker.example.com"
+    aria-label="Denylist domains"
+    rows="6"
+    required
+  ></textarea>
+
+  <button class="add-button" type="submit">
+    Add Domains
+  </button>
+</form>
                 <ul class="domain-list" id="denylist"></ul>
               </article>
-            </section>
-          </main>
+           </section>
+</div>
+</main>
   
           <script>
           const lists = {
@@ -194,6 +205,45 @@ export function managePage() {
             const query = new URLSearchParams(window.location.search);
             return query.get("uid") || "";
           }
+
+          async function loadAuthStatus() {
+  const uid = getUid();
+
+  if (!uid) {
+    showStatus("Missing uid in URL.", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/custom/auth?uid=" + encodeURIComponent(uid)
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showStatus(data.error || "Could not check authentication status.", true);
+      return;
+    }
+
+    const authTitle = document.getElementById("auth-title");
+    const authButton = document.getElementById("auth-button");
+    const passwordInput = document.getElementById("password");
+
+    if (data.hasPassword) {
+      authTitle.textContent = "Enter Password";
+      authButton.textContent = "Log In";
+      passwordInput.autocomplete = "current-password";
+    } else {
+      authTitle.textContent = "Create Password";
+      authButton.textContent = "Create Password";
+      passwordInput.autocomplete = "new-password";
+    }
+  } catch (error) {
+    showStatus("Failed to check authentication status.", true);
+    console.error("Failed to check authentication status:", error);
+  }
+}
           
           function showStatus(message, isError = false) {
             const statusElement = document.getElementById("status-message");
@@ -346,44 +396,116 @@ export function managePage() {
           }
         
           document.querySelectorAll(".domain-form").forEach((form) => {
-            form.addEventListener("submit", async (event) => {
-              event.preventDefault();
-          
-              const listType = form.dataset.listType;
-              const input = form.querySelector(".domain-input");
-              const domain = input.value.trim().toLowerCase();
-          
-              if (!domain) {
-                return;
-              }
-          
-              if (lists[listType].includes(domain)) {
-                showStatus("That domain is already in this list.", true);
-                return;
-              }
-              
-              if (lists[listType].length >= MAX_DOMAINS) {
-                showStatus("This list has reached the 1,000-domain limit.", true);
-                return;
-              }
-              
-              lists[listType].push(domain);
-          
-              const saved = await saveLists();
-          
-              if (!saved) {
-                lists[listType] = lists[listType].filter(
-                  (currentDomain) => currentDomain !== domain
-                );
-                renderList(listType);
-                return;
-              }
-          
-              input.value = "";
-            });
-          });
-        
-          loadLists();
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const listType = form.dataset.listType;
+    const input = form.querySelector(".domain-input");
+
+    const newDomains = [
+      ...new Set(
+        input.value
+          .split(/\s+/)
+          .map((domain) => domain.trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (newDomains.length === 0) {
+      return;
+    }
+
+    const otherListType =
+      listType === "allowlist" ? "denylist" : "allowlist";
+
+    const conflictingDomain = newDomains.find((domain) =>
+      lists[otherListType].includes(domain)
+    );
+
+    if (conflictingDomain) {
+      showStatus(
+        "The domain " +
+          conflictingDomain +
+          " is already in the " +
+          otherListType +
+          ". Remove it there first.",
+        true
+      );
+      return;
+    }
+
+    const domainsToAdd = newDomains.filter(
+      (domain) => !lists[listType].includes(domain)
+    );
+
+    if (lists[listType].length + domainsToAdd.length > MAX_DOMAINS) {
+      showStatus(
+        "Adding these domains would exceed the 1,000-domain limit.",
+        true
+      );
+      return;
+    }
+
+    const previousList = [...lists[listType]];
+
+    lists[listType] = [...lists[listType], ...domainsToAdd];
+
+    const saved = await saveLists();
+
+    if (!saved) {
+      lists[listType] = previousList;
+      renderList(listType);
+      return;
+    }
+
+    input.value = "";
+  });
+});
+          document.getElementById("auth-button").addEventListener("click", async () => {
+  const uid = getUid();
+  const passwordInput = document.getElementById("password");
+  const password = passwordInput.value;
+
+  if (!uid) {
+    showStatus("Missing uid in URL.", true);
+    return;
+  }
+
+  if (!password) {
+    showStatus("Please enter a password.", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/custom/auth?uid=" + encodeURIComponent(uid),
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showStatus(data.error || "Authentication failed.", true);
+      return;
+    }
+
+    document.getElementById("auth-screen").hidden = true;
+    document.getElementById("list-screen").hidden = false;
+
+    await loadLists();
+  } catch (error) {
+    showStatus("Authentication failed.", true);
+    console.error("Authentication failed:", error);
+  }
+});
+
+loadAuthStatus();
         </script>
         </body>
       </html>

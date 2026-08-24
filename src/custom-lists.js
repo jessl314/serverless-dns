@@ -88,6 +88,11 @@ export async function loadAuth(uid) {
   };
 }
 
+export async function hasAuth(uid) {
+  const auth = await loadAuth(uid);
+  return Boolean(auth.passwordHash);
+}
+
 export async function saveAuth(uid, { passwordHash, passwordSalt }) {
   const store = kv();
 
