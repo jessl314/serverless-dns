@@ -30,12 +30,10 @@ export class DnsBlocker {
 
     if (!stamps) {
       this.log.d(rxid, "q: no stamp");
-      return req;
     }
 
     if (!rdnsutil.hasBlockstamp(blockInfo)) {
       this.log.d(rxid, "q: no user-set blockstamp");
-      return req;
     }
 
     if (!dnsutil.isQueryBlockable(dnsPacket)) {
@@ -61,14 +59,17 @@ export class DnsBlocker {
     const stamps = res.stamps;
 
     // dnsPacket is null when cache only has metadata
-    if (!stamps || !dnsutil.hasAnswers(dnsPacket)) {
-      this.log.d(rxid, "ans: no stamp / dns-packet");
+    if (!dnsutil.hasAnswers(dnsPacket)) {
+      this.log.d(rxid, "ans: no dns-packet");
       return res;
+    }
+
+    if (!stamps) {
+      this.log.d(rxid, "ans: no stamp");
     }
 
     if (!rdnsutil.hasBlockstamp(blockInfo)) {
       this.log.d(rxid, "ans: no user-set blockstamp");
-      return res;
     }
 
     if (!dnsutil.isAnswerBlockable(dnsPacket)) {
@@ -100,7 +101,7 @@ export class DnsBlocker {
     const customDeny = denySet || new Set();
     let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
-      const domain = dnsutil.normalizeName(n)
+      const domain = dnsutil.normalizeName(n);
       // check custom denylist
       if (customDeny.has(domain)) {
         r = pres.rdnsBlockResponse("custom-deny");
@@ -113,8 +114,15 @@ export class DnsBlocker {
       }
       // check if selected shared lists overlaps with lists
       // that contain this domain before block decision
-      r = rdnsutil.doBlock(n, blockInfo, blockstamps);
-      if (r.isBlocked) break;
+      // Check shared blocklists only when the request has
+      // the required shared blocklist information.
+      if (blockstamps && rdnsutil.hasBlockstamp(blockInfo)) {
+        r = rdnsutil.doBlock(n, blockInfo, blockstamps);
+
+        if (r.isBlocked) {
+          break;
+        }
+      }
     }
     return r;
   }

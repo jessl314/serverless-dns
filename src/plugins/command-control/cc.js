@@ -153,17 +153,6 @@ export class CommandControl {
 
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
-      // Temporary local/demo redirect to avoid initializing the full blocklist.
-      if (reqUrl.pathname === "/") {
-        response.data.httpResponse = new Response(null, {
-          status: 302,
-          headers: {
-            Location: "/manage?uid=testuser",
-          },
-        });
-        return response;
-      }
-
       // Serve the management UI without initializing the DNS blocklist.
       if (command === "manage") {
         response.data.httpResponse = managePage();

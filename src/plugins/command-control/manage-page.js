@@ -76,6 +76,10 @@ export function managePage() {
               border: 1px solid #9ca3af;
               border-radius: 4px;
             }
+
+            .domain-input::placeholder {
+  opacity: 0.55;
+}
   
             button {
               padding: 10px 16px;
@@ -103,11 +107,14 @@ export function managePage() {
               border-bottom: 1px solid #e5e7eb;
             }
   
-            .remove-button {
-              padding: 6px 10px;
-              background: #dc2626;
-              color: white;
-            }
+.remove-button {
+  padding: 2px 8px;
+  background: transparent;
+  color: #dc2626;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
   
             .empty-message {
               color: #6b7280;
@@ -133,32 +140,53 @@ export function managePage() {
 
   <!-- Authentication screen shown first -->
   <div id="auth-screen" class="auth-section">
-    <h2 id="auth-title">Authentication</h2>
+  <h2 id="auth-title">Custom DNS Lists</h2>
 
-    <label for="password">Password</label>
+  <div>
+    <button id="create-mode-button" type="button">
+      Create Password
+    </button>
 
-    <input
-      id="password"
-      type="password"
-      placeholder="Enter password"
-      autocomplete="current-password"
-    />
-
-    <button id="auth-button" class="add-button" type="button">
-      Continue
+    <button id="login-mode-button" type="button">
+      Enter Existing Password
     </button>
   </div>
 
+  <label for="uid">User ID</label>
+  <input
+    id="uid"
+    type="text"
+    placeholder="Enter user ID"
+    autocomplete="username"
+  />
+
+  <label for="password">Password</label>
+  <input
+    id="password"
+    type="password"
+    placeholder="Enter password"
+    autocomplete="current-password"
+  />
+
+  <button id="auth-button" class="add-button" type="button">
+    Continue
+  </button>
+</div>
+
   <!-- List management UI stays hidden until authentication succeeds -->
-  <div id="list-screen" hidden>
-    <section class="lists">
-              <article class="list-card">
-                <h2>Allowlist</h2>
-  
-                <form class="domain-form" data-list-type="allowlist">
+<div id="list-screen" hidden>
+  <button id="logout-button" type="button">
+    Logout
+  </button>
+
+  <section class="lists">
+    <article class="list-card">
+      <h2>Allowlist</h2>
+
+      <form class="domain-form" data-list-type="allowlist">
   <textarea
     class="domain-input"
-    placeholder="example.com&#10;openai.com&#10;github.com"
+    placeholder="Enter one domain per line:&#10;example.com&#10;openai.com&#10;github.com"
     aria-label="Allowlist domains"
     rows="6"
     required
@@ -178,7 +206,7 @@ export function managePage() {
                 <form class="domain-form" data-list-type="denylist">
   <textarea
     class="domain-input"
-    placeholder="ads.example.com&#10;tracker.example.com"
+    placeholder="Enter one domain per line:&#10;ads.example.com&#10;tracker.example.com"
     aria-label="Denylist domains"
     rows="6"
     required
@@ -200,11 +228,17 @@ export function managePage() {
             denylist: [],
           };
           const MAX_DOMAINS = 1000;
+          let authMode = "";
+          let activeUid = "";
           
           function getUid() {
-            const query = new URLSearchParams(window.location.search);
-            return query.get("uid") || "";
-          }
+  if (activeUid) {
+    return activeUid;
+  }
+
+  const uidInput = document.getElementById("uid");
+  return uidInput ? uidInput.value.trim() : "";
+}
 
           async function loadAuthStatus() {
   const uid = getUid();
@@ -372,7 +406,8 @@ export function managePage() {
               const removeButton = document.createElement("button");
               removeButton.type = "button";
               removeButton.className = "remove-button";
-              removeButton.textContent = "Remove";
+              removeButton.textContent = "×";
+removeButton.setAttribute("aria-label", "Remove " + domain);
         
               removeButton.addEventListener("click", async () => {
                 const previousList = [...lists[listType]];
@@ -461,10 +496,102 @@ export function managePage() {
     input.value = "";
   });
 });
+
+document.getElementById("logout-button").addEventListener("click", () => {
+  activeUid = "";
+  authMode = "";
+
+  document.getElementById("uid").value = "";
+  document.getElementById("password").value = "";
+
+  document.getElementById("auth-title").textContent = "Custom DNS Lists";
+  document.getElementById("auth-button").textContent = "Continue";
+
+  document.getElementById("list-screen").hidden = true;
+  document.getElementById("auth-screen").hidden = false;
+
+  showStatus("");
+});
+
+
+document
+  .getElementById("create-mode-button")
+  .addEventListener("click", () => {
+    authMode = "create";
+
+    document.getElementById("auth-title").textContent = "Create Password";
+    document.getElementById("auth-button").textContent = "Create Password";
+    document.getElementById("password").autocomplete = "new-password";
+
+    showStatus("");
+  });
+
+document
+  .getElementById("login-mode-button")
+  .addEventListener("click", () => {
+    authMode = "login";
+
+    document.getElementById("auth-title").textContent = "Enter Password";
+    document.getElementById("auth-button").textContent = "Log In";
+    document.getElementById("password").autocomplete = "current-password";
+
+    showStatus("");
+  });
+
+
           document.getElementById("auth-button").addEventListener("click", async () => {
   const uid = getUid();
   const passwordInput = document.getElementById("password");
   const password = passwordInput.value;
+
+  if (!authMode) {
+  showStatus("Choose Create Password or Enter Existing Password first.", true);
+  return;
+}
+
+if (!uid) {
+  showStatus("Please enter a user ID.", true);
+  return;
+}
+
+if (!password || password.length < 8) {
+  showStatus("Password must be at least 8 characters.", true);
+  return;
+}
+
+let statusResponse;
+
+try {
+  statusResponse = await fetch(
+    "/custom/auth?uid=" + encodeURIComponent(uid)
+  );
+} catch (error) {
+  showStatus("Could not check user authentication status.", true);
+  return;
+}
+
+if (!statusResponse.ok) {
+  showStatus("Could not check user authentication status.", true);
+  return;
+}
+
+const statusData = await statusResponse.json();
+
+if (authMode === "create" && statusData.hasPassword) {
+  showStatus(
+    "That user ID already has a password. Use Enter Existing Password instead.",
+    true
+  );
+  return;
+}
+
+if (authMode === "login" && !statusData.hasPassword) {
+  showStatus(
+    "No account exists for that user ID. Use Create Password instead.",
+    true
+  );
+  return;
+}
 
   if (!uid) {
     showStatus("Missing uid in URL.", true);
@@ -495,6 +622,8 @@ export function managePage() {
       return;
     }
 
+    activeUid = uid;
+
     document.getElementById("auth-screen").hidden = true;
     document.getElementById("list-screen").hidden = false;
 
@@ -505,7 +634,6 @@ export function managePage() {
   }
 });
 
-loadAuthStatus();
         </script>
         </body>
       </html>
